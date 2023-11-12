@@ -67,6 +67,14 @@ const createStudent = async (req, res, next) => {
     //原因是不需要去看req.body里会返回什么样的数据，也不会直接使用req.body的参数，而是结构赋值新的数据，不会影响原有数据
     //也不要直接把req.body作为参数直接传入，这样很危险。应该通过解构赋值，选取我们需要的数据，比如req.body中有些参数是不应该人工设置的，这时就不需要解构出来
     const newStudent = await new Student(validBody).save();
+    // 创建了学生以后，如果courses不为空，那么还需要给Course model下也加上student的数据
+    // 因为这里是双向绑定
+    if (courses) {
+      await Course.updateMany(
+        { _id: { $in: courses } },
+        { $addToSet: { students: newStudent._id } }
+      );
+    }
     res.status(201).json({ data: newStudent });
   } catch (error) {
     next(error);
@@ -97,6 +105,21 @@ const updateStudentById = async (req, res, next) => {
     if (!updatedStudent) {
       return res.status(404).json({ error: "Student not found" });
     }
+    // 更新了学生以后，如果courses不为空，那么还需要给Course model下也更新student的数据
+    if (courses) {
+      // 找出所有以前和该学生相关的课程
+      const previousCourses = await Course.find({ students: studentId });
+      // 更新之前相关课程，将该学生的ID从students数组中移除
+      for (const previousCourse of previousCourses) {
+        previousCourse.students.pull(studentId);
+        await previousCourse.save();
+      }
+      // 更新相关课程，将该学生的ID添加到students数组中
+      await Course.updateMany(
+        { _id: { $in: courses } },
+        { $addToSet: { students: studentId } }
+      );
+    }
     res.status(201).json({ data: updatedStudent });
   } catch (error) {
     next(error);
@@ -110,6 +133,16 @@ const deleteStudentById = async (req, res, next) => {
     if (!deletedStudent) {
       return res.status(404).json({ error: "Student not found" });
     }
+    // 删除该学生，需要把Course里的学生数据也一并删除
+    const courses = await Course.find({ students: studentId });
+    const courseIds = courses.map((course) => course._id);
+
+    // 使用 updateMany 批量更新相关课程的学生记录
+    await Course.updateMany(
+      { _id: { $in: courseIds } },
+      { $pull: { students: studentId } }
+    );
+
     res.status(201).json({ data: deletedStudent });
   } catch (error) {
     next(error);
