@@ -1,0 +1,26 @@
+# 忽略临时文件
+*~
+
+# 忽略编译生成的文件
+*.class
+*.jar
+*.war
+*.ear
+*.exe
+*.dll
+*.so
+*.obj
+
+# 忽略操作系统生成的文件
+Thumbs.db
+.DS_Store
+ehthumbs.db
+
+# 忽略日志文件
+*.log
+
+# 忽略编译产物和构建文件夹
+target/
+bin/
+out/
+node_modules/
